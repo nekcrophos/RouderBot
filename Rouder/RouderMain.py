@@ -1,6 +1,15 @@
 from telebot import types
 import telebot
+import os
+from dotenv import load_dotenv
 
+# В файле .env токены
+# load_dotenv()
+# domain = os.getenv("DOMAIN") 
+# print(domain)
+
+
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 token = '7345134430:AAGIUwBzqfGTdJSC8LYvSY-7khNR_Y3QkDs'
 botRouder = telebot.TeleBot(token);
 
