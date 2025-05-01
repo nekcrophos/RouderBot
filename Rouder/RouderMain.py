@@ -10,6 +10,7 @@ class User():
     surname = '';
     age = 0;
 
+print('sos')
 user = User();
 users = [];
 
