@@ -1,84 +1,95 @@
 from telebot import types
 import telebot
+import os
+from dotenv import load_dotenv
 
-token = '7297525185:AAFreqpsv-UU88Lb9XfKwxgoVEfDwbdSJ_w'
-botRouder = telebot.TeleBot(token);
+load_dotenv()
+token = os.getenv("TOKEN")
+bot = telebot.TeleBot(token)
 
-class User():
-    id = '';
-    name = '';
-    surname = '';
-    age = 0;
+class User:
+    def __init__(self):
+        self.id = None
+        self.name = None
+        self.surname = None
+        self.age = 0
 
-user = User();
-users = [];
+users = {}
 
-intrRile = open('introduction.txt', 'r', encoding='utf-8')
-preamFile = open('pream.txt', 'r', encoding='utf-8')
+with open('introduction.txt', 'r', encoding='utf-8') as f:
+    introduction = f.read()
 
-@botRouder.message_handler(content_types=['text'])
+with open('pream.txt', 'r', encoding='utf-8') as f:
+    preamble = f.read()
+
+@bot.message_handler(commands=['start'])
 def start(message):
-    if message.text == '/start':
-        introduction = intrRile.read()
-        botRouder.send_message(message.from_user.id, introduction)
-        
-        keyboard = types.InlineKeyboardMarkup(); #наша клавиатура
-        key_yes = types.InlineKeyboardButton(text='Да', callback_data='yes_indeed');
-        keyboard.add(key_yes);
-        key_no = types.InlineKeyboardButton(text = 'Нет', callback_data='no_imnot');
-        keyboard.add(key_no);
-        botRouder.send_message(message.from_user.id, reply_markup=keyboard, text=preamFile.read())
-    else:
-        botRouder.send_message(message.from_user.id, 'Напиши /start');
+    bot.send_message(message.chat.id, introduction)
+    
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(
+        types.InlineKeyboardButton('Да', callback_data='yes_indeed'),
+        types.InlineKeyboardButton('Нет', callback_data='no_imnot')
+    )
+    bot.send_message(message.chat.id, preamble, reply_markup=keyboard)
 
-def refistration(message):
-    user.id = message.from_user.id
-    if message.text == '/reg':
-        botRouder.send_message(message.from_user.id, "Как тебя зовут?");
-        botRouder.register_next_step_handler(message, get_name); #следующий шаг – функция get_name
+@bot.callback_query_handler(func=lambda call: call.data in ['yes_indeed', 'no_imnot'])
+def handle_introduction(call):
+    if call.data == 'yes_indeed':
+        msg = bot.send_message(call.message.chat.id, "Как тебя зовут?")
+        bot.register_next_step_handler(msg, get_name)
     else:
-        botRouder.send_message(message.from_user.id, 'Напиши /reg');
+        bot.send_message(call.message.chat.id, "Жаль, возвращайся когда будешь готов!")
 
-def get_name(message): #получаем фамилию
-    user.name = message.text;
-    botRouder.send_message(message.from_user.id, 'Какая у тебя фамилия?');
-    botRouder.register_next_step_handler(message, get_surname);
+def get_name(message):
+    user = User()
+    user.id = message.chat.id
+    user.name = message.text
+    users[message.chat.id] = user
+    
+    msg = bot.send_message(message.chat.id, "Какая у тебя фамилия?")
+    bot.register_next_step_handler(msg, get_surname)
 
 def get_surname(message):
-    user.surname = message.text;
-    botRouder.send_message(message.from_user.id,'Сколько тебе лет?');
-    botRouder.register_next_step_handler(message, get_age);
+    user = users.get(message.chat.id)
+    if user:
+        user.surname = message.text
+        msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
+        bot.register_next_step_handler(msg, get_age)
 
 def get_age(message):
-    while user.age == 0: #проверяем что возраст изменился
+    user = users.get(message.chat.id)
+    if user:
         try:
-             user.age = int(message.text) #проверяем, что возраст введен корректно
-        except Exception:
-             botRouder.send_message(message.from_user.id, 'Цифрами, пожалуйста');
-
-        if (user.age < 18):
-            botRouder.send_message(message.from_user.id, 'Ваш возраст не соответвствует соглашению нашего бота')
+            age = int(message.text)
+            if age < 18:
+                bot.send_message(message.chat.id, "Вам должно быть больше 18 лет!")
+                return
+            user.age = age
+        except ValueError:
+            msg = bot.send_message(message.chat.id, "Введите число!")
+            bot.register_next_step_handler(msg, get_age)
             return
         
-        keyboard = types.InlineKeyboardMarkup(); #наша клавиатура
-        key_yes = types.InlineKeyboardButton(text='Да', callback_data='yes');
-        keyboard.add(key_yes);
-        key_no = types.InlineKeyboardButton(text = 'Нет', callback_data='no');
-        keyboard.add(key_no);
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(
+            types.InlineKeyboardButton('Да', callback_data='confirm_yes'),
+            types.InlineKeyboardButton('Нет', callback_data='confirm_no')
+        )
+        text = f"Тебе {age} лет, тебя зовут {user.name} {user.surname}?"
+        bot.send_message(message.chat.id, text, reply_markup=keyboard)
 
-        question = 'Тебе '+str(user.age)+' лет, тебя зовут '+user.name+' '+ user.surname + '?';
+@bot.callback_query_handler(func=lambda call: call.data in ['confirm_yes', 'confirm_no'])
+def handle_confirmation(call):
+    user = users.get(call.message.chat.id)
+    if call.data == 'confirm_yes':
+        bot.send_message(call.message.chat.id, "Отлично! Регистрация завершена!")
+        bot.answer_callback_query(call.id)
+        # Здесь можно сохранить пользователя в БД
+    else:
+        bot.send_message(call.message.chat.id, "Давайте начнем заново!")
+        msg = bot.send_message(call.message.chat.id, "Как тебя зовут?")
+        bot.register_next_step_handler(msg, get_name)
 
-        botRouder.send_message(message.from_user.id, text=question, reply_markup=keyboard);
-
-@botRouder.callback_query_handler(func=lambda call: True)
-def callback_worker(call):
-    if call.data == "yes": #call.data это callback_data, которую мы указали при объявлении кнопки
-        users.append(user) #код сохранения данных, или их обработки
-        botRouder.send_message(call.message.chat.id, 'Запомню : )');
-        return;
-    elif call.data == "no":
-        ... #переспрашиваем
-        botRouder.send_message(call.message.chat.id, 'Попрубуй ещё раз')
-        return;
-
-botRouder.polling(none_stop=True, interval=0)
+if __name__ == '__main__':
+    bot.polling(none_stop=True)
