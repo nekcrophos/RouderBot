@@ -1,7 +1,7 @@
 from telebot import types
 import telebot
 
-token = '7345134430:AAGIUwBzqfGTdJSC8LYvSY-7khNR_Y3QkDs'
+token = '7297525185:AAFreqpsv-UU88Lb9XfKwxgoVEfDwbdSJ_w'
 botRouder = telebot.TeleBot(token);
 
 class User():
@@ -10,12 +10,28 @@ class User():
     surname = '';
     age = 0;
 
-print('sos')
 user = User();
 users = [];
 
+intrRile = open('introduction.txt', 'r', encoding='utf-8')
+preamFile = open('pream.txt', 'r', encoding='utf-8')
+
 @botRouder.message_handler(content_types=['text'])
 def start(message):
+    if message.text == '/start':
+        introduction = intrRile.read()
+        botRouder.send_message(message.from_user.id, introduction)
+        
+        keyboard = types.InlineKeyboardMarkup(); #наша клавиатура
+        key_yes = types.InlineKeyboardButton(text='Да', callback_data='yes_indeed');
+        keyboard.add(key_yes);
+        key_no = types.InlineKeyboardButton(text = 'Нет', callback_data='no_imnot');
+        keyboard.add(key_no);
+        botRouder.send_message(message.from_user.id, reply_markup=keyboard, text=preamFile.read())
+    else:
+        botRouder.send_message(message.from_user.id, 'Напиши /start');
+
+def refistration(message):
     user.id = message.from_user.id
     if message.text == '/reg':
         botRouder.send_message(message.from_user.id, "Как тебя зовут?");
@@ -39,6 +55,10 @@ def get_age(message):
              user.age = int(message.text) #проверяем, что возраст введен корректно
         except Exception:
              botRouder.send_message(message.from_user.id, 'Цифрами, пожалуйста');
+
+        if (user.age < 18):
+            botRouder.send_message(message.from_user.id, 'Ваш возраст не соответвствует соглашению нашего бота')
+            return
         
         keyboard = types.InlineKeyboardMarkup(); #наша клавиатура
         key_yes = types.InlineKeyboardButton(text='Да', callback_data='yes');
