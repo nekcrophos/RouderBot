@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS Users (
  surname VARCHAR(40),
  age INT,
  description VARCHAR(200),
- avatar VARCHAR(50)
+ avatar VARCHAR(50),
+ register BOOL
 )
 ''')
 conn.commit()
@@ -24,8 +25,8 @@ cursor = conn.cursor()
 s = cursor.execute('''
 SELECT * FROM Users
 ''').fetchall()
-for u in s:
-    print(u)
+# for u in s:
+#     print(u)
 # s = cursor.execute('''
 # INSERT INTO Users (telegram_id, name, surname, age)
 # VALUES (123436, 'Test_name', 'test_surname', 27)

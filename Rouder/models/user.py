@@ -4,8 +4,8 @@ class User:
         self.telegram_id = telegram_id
         self.name = name
         self.surname = surname
-        self.decription = description
+        self.description = description
         self.age = age
-        self.register = False
+        self.register = register
     def __str__(self):
         return f'User(telegram_id: {self.telegram_id}, name: {self.name}, surname: {self.surname}, age: {self.age}, description: {self.decription})'

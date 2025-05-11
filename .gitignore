@@ -1,3 +1,5 @@
 *.md
 *.env
 **/__pycache__
+Rouder\avatars
+bot.db
