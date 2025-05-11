@@ -1,8 +1,11 @@
 class User:
-    def __init__(self, telegram_id: int, name: str, surname: str, age: int):
+    def __init__(self, telegram_id: int = None, name: str = None, surname: str = None, age: int = 0, avatar: str = None, description: str = None, register = False):
+        self.avatar = avatar
         self.telegram_id = telegram_id
         self.name = name
         self.surname = surname
+        self.decription = description
         self.age = age
+        self.register = False
     def __str__(self):
-        return f'User(telegram_id: {self.telegram_id}, name: {self.name}, surname: {self.surname}, age: {self.age})'
+        return f'User(telegram_id: {self.telegram_id}, name: {self.name}, surname: {self.surname}, age: {self.age}, description: {self.decription})'

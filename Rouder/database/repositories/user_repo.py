@@ -33,7 +33,12 @@ def update_username(telegram_id: int, new_name: str) -> bool:
         with DataBase() as db:
                 cursor = db.execute(query, (new_name, telegram_id), commit=True)
                 return cursor is not None and cursor.rowcount > 0
-        
+def update_user(telegram_id: int, newUser: User):
+        if newUser.telegram_id != telegram_id: raise Exception("Разные юзеры")
+        query = "UPDATE users SET name = ?, surname = ?, age = ?, description = ?, avatar = ? WHERE telegram_id = ?"
+        with DataBase() as db:
+                cursor = db.execute(query, (newUser.name,newUser.surname, newUser.age, newUser.description, newUser.avatar, telegram_id), commit=True)
+                return cursor is not None and cursor.rowcount > 0
 def delete_user(telegram_id: int) -> bool:
         """Удаление пользователя"""
         query = "DELETE FROM users WHERE telegram_id = ?"
@@ -47,5 +52,5 @@ def get_all_users(): #-> List[dict]:
         with DataBase() as db:
                 cursor = db.execute(query,"")
                 if cursor:
-                        return [User(row['telegram_id'], row['name'], row['surname'], row['age']) for row in cursor.fetchall()]
+                        return [User(row['telegram_id'], row['name'], row['surname'], row['age'], row['description']) for row in cursor.fetchall()]
         return []

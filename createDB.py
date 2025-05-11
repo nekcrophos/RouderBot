@@ -9,10 +9,12 @@ cursor = conn.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS Users (
  Id INTEGER PRIMARY KEY AUTOINCREMENT,
- telegram_id INTEGER UNIQUE NOT NULL,
+ telegram_id INTEGER UNIQUE,
  name NVARCHAR(15),
  surname VARCHAR(40),
- age INT
+ age INT,
+ description VARCHAR(200),
+ avatar VARCHAR(50)
 )
 ''')
 conn.commit()

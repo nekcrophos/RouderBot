@@ -3,19 +3,11 @@ import telebot
 import os
 from dotenv import load_dotenv
 
+from models.user import User
+
 load_dotenv()
 token = os.getenv("TOKEN")
 bot = telebot.TeleBot(token)
-
-class User:
-    def __init__(self):
-        self.avatar = None
-        self.id = None
-        self.name = None
-        self.surname = None
-        self.decription = None
-        self.age = 0
-        self.register = False
     
 commStart = types.BotCommand(command='/start', description='Начать бота')
 commHelp = types.BotCommand(command='/help', description='Помощь в использовании бота')
@@ -24,12 +16,11 @@ commChangeProf = types.BotCommand(command='/change_profile', description='Изм
 
 bot.set_my_commands([commStart, commHelp, commMyProf, commChangeProf])
 
-users = {}
 
-with open('introduction.txt', 'r', encoding='utf-8') as f:
+with open('Rouder\introduction.txt', 'r', encoding='utf-8') as f:
     introduction = f.read()
 
-with open('pream.txt', 'r', encoding='utf-8') as f:
+with open('Rouder\pream.txt', 'r', encoding='utf-8') as f:
     preamble = f.read()
 
 @bot.message_handler(commands=['start'])
@@ -55,7 +46,7 @@ def handle_introduction(call):
 
 def get_name(message):
     user = User()
-    user.id = message.chat.id
+    user.telegram_id = message.chat.id
     user.name = message.text
     users[message.chat.id] = user
     
@@ -75,7 +66,7 @@ def get_avatar(message):
         photo = message.photo[-1]
         file_info = bot.get_file(photo.file_id)
         dowloaded_file = bot.download_file(file_info.file_path)
-        save_path = f'avatars\{message.chat.id}_user_avatar.jpg'
+        save_path = f'Rouder\\avatars\\{message.chat.id}_user_avatar.{file_info.file_path.rsplit('.', 2)[1]}'
         with open(save_path, 'wb') as new_avatar:
             new_avatar.write(dowloaded_file)
         user.avatar = save_path
