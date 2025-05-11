@@ -9,10 +9,20 @@ bot = telebot.TeleBot(token)
 
 class User:
     def __init__(self):
+        self.avatar = None
         self.id = None
         self.name = None
         self.surname = None
+        self.decription = None
         self.age = 0
+        self.register = False
+    
+commStart = types.BotCommand(command='/start', description='Начать бота')
+commHelp = types.BotCommand(command='/help', description='Помощь в использовании бота')
+commMyProf = types.BotCommand(command='/my_profile', description='Мой профиль')
+commChangeProf = types.BotCommand(command='/change_profile', description='Изменить профиль')
+
+bot.set_my_commands([commStart, commHelp, commMyProf, commChangeProf])
 
 users = {}
 
@@ -24,6 +34,7 @@ with open('pream.txt', 'r', encoding='utf-8') as f:
 
 @bot.message_handler(commands=['start'])
 def start(message):
+    bot.set_chat_menu_button(message.chat.id, types.MenuButtonCommands('commands'))
     bot.send_message(message.chat.id, introduction)
     
     keyboard = types.InlineKeyboardMarkup()
@@ -35,6 +46,7 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: call.data in ['yes_indeed', 'no_imnot'])
 def handle_introduction(call):
+    bot.answer_callback_query(call.id)
     if call.data == 'yes_indeed':
         msg = bot.send_message(call.message.chat.id, "Как тебя зовут?")
         bot.register_next_step_handler(msg, get_name)
@@ -54,8 +66,24 @@ def get_surname(message):
     user = users.get(message.chat.id)
     if user:
         user.surname = message.text
+        msg = bot.send_message(message.chat.id, "Отправь свою аватарку?")
+        bot.register_next_step_handler(msg, get_avatar)
+
+def get_avatar(message):
+    user = users.get(message.chat.id)
+    if user:
+        photo = message.photo[-1]
+        file_info = bot.get_file(photo.file_id)
+        dowloaded_file = bot.download_file(file_info.file_path)
+        save_path = f'avatars\{message.chat.id}_user_avatar.jpg'
+        with open(save_path, 'wb') as new_avatar:
+            new_avatar.write(dowloaded_file)
+        user.avatar = save_path
+        #bot.reply_to(message, 'Аватар сохранён')
         msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
         bot.register_next_step_handler(msg, get_age)
+
+
 
 def get_age(message):
     user = users.get(message.chat.id)
@@ -79,17 +107,37 @@ def get_age(message):
         text = f"Тебе {age} лет, тебя зовут {user.name} {user.surname}?"
         bot.send_message(message.chat.id, text, reply_markup=keyboard)
 
+
 @bot.callback_query_handler(func=lambda call: call.data in ['confirm_yes', 'confirm_no'])
 def handle_confirmation(call):
     user = users.get(call.message.chat.id)
     if call.data == 'confirm_yes':
-        bot.send_message(call.message.chat.id, "Отлично! Регистрация завершена!")
+        user.register = True
+        msg = bot.send_message(call.message.chat.id, "Отлично! Регистрация завершена!")
         bot.answer_callback_query(call.id)
+        bot.register_next_step_handler(msg, show_profile)
         # Здесь можно сохранить пользователя в БД
     else:
+        bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, "Давайте начнем заново!")
         msg = bot.send_message(call.message.chat.id, "Как тебя зовут?")
         bot.register_next_step_handler(msg, get_name)
+
+@bot.message_handler(commands=['my_profile'])
+def show_profile(message):
+    user = users.get(message.chat.id)
+    try:
+        if (user.register == True):
+            user_avatar = open(user.avatar, 'rb')
+            bot.send_photo(message.chat.id, photo=user_avatar,caption=f'Имя: {user.name} \n Фамилия: {user.surname} \n Возраст: {user.age}')
+            #bot.send_message(message.chat.id,f'{user_avatar} \n Имя: {user.name} \n Фамилия: {user.surname} \n Возраст: {user.age}') # Картинка профиля, описание
+        else:
+            bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \start')
+    except AttributeError:
+        bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \start')
+
+
+
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
