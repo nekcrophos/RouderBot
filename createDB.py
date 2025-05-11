@@ -31,6 +31,7 @@ for u in s:
 conn.commit()
 conn.close()
 print('sas')
-s = DataBase()
-s.connect()
-print('user')
+k = get_all_users()
+print('users')
+for us in k:
+    print(us)
