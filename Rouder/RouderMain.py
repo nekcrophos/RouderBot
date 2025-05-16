@@ -77,8 +77,58 @@ def get_avatar(message):
         msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
         bot.register_next_step_handler(msg, get_age)
 
-
-
+def get_interests(message):
+    music = types.InlineKeyboardMarkup()
+    music.add(
+        types.InlineKeyboardButton('Рок/Альтернатива', callback_data='rock|alter'),
+        types.InlineKeyboardButton('Электронная музыка/Рейвы', callback_data='electr|rave'),
+        types.InlineKeyboardButton('Хип-хоп/R&B', callback_data='hiphop|RnB'),
+        types.InlineKeyboardButton('Поп', callback_data='pop'),
+        types.InlineKeyboardButton('Шансон', callback_data='shanson'),
+        types.InlineKeyboardButton('Ничего', callback_data='nothing')
+    )
+    bot.send_message(message.chat.id, 'Какая у тебя музыкальная ориентация?', reply_markup=music)
+    place = types.InlineKeyboardMarkup()
+    place.add(
+        types.InlineKeyboardButton('Кофейный сноб (спешиалти кофе)', callback_data='coffee'),
+        types.InlineKeyboardButton('Вино и сырные вечера', callback_data='wine'),
+        types.InlineKeyboardButton('Крафтовое пиво', callback_data='beer'),
+        types.InlineKeyboardButton('Амбассадор ресторанов', callback_data='restaurant'),
+        types.InlineKeyboardButton('Уличная еда (бургеры, тако, фалафель)', callback_data='streetfood'),
+        types.InlineKeyboardButton('Ничего', callback_data='nothing')
+    )
+    bot.send_message(message.chat.id, 'Какой у тебя вкус к местам?', reply_markup=place)
+    actives = types.InlineKeyboardMarkup()
+    actives.add(
+        types.InlineKeyboardButton('Настольные игры (Мафия, Монополия)', callback_data='boardgames'),
+        types.InlineKeyboardButton('Квизы и интеллектуальные баттлы', callback_data='quizes'),
+        types.InlineKeyboardButton('Караоке', callback_data='karaoke'),
+        types.InlineKeyboardButton('Танцы', callback_data='dances'),
+        types.InlineKeyboardButton('Спорт-трансляции (футбол, баскетбол)', callback_data='sports'),
+        types.InlineKeyboardButton('Ничего', callback_data='nothing')
+    )
+    bot.send_message(message.chat.id, 'Что ты предпочитаешь в местах отдыха?', reply_markup=actives)
+    pop_culter = types.InlineKeyboardMarkup()
+    pop_culter.add(
+        types.InlineKeyboardButton('Кино и сериалы', callback_data='cinema'),
+        types.InlineKeyboardButton('Марвел/DC и комиксы', callback_data='comics'),
+        types.InlineKeyboardButton('Аниме и манга', callback_data='anime'),
+        types.InlineKeyboardButton('Ностальгия по 90-м/2000-м', callback_data='nostalgia'),
+        types.InlineKeyboardButton('Книги и журналы', callback_data='books'),
+        types.InlineKeyboardButton('Ничего', callback_data='nothing')
+    )
+    bot.send_message(message.chat.id, 'Какой у тебя вкус к популярной культуре?', reply_markup=pop_culter)
+    lifestyle = types.InlineKeyboardMarkup()
+    lifestyle.add(
+        types.InlineKeyboardButton('ЗОЖ и велнес (смузи, йога)', callback_data='zoj'),
+        types.InlineKeyboardButton('Путешествия и тревел-стори', callback_data='travel'),
+        types.InlineKeyboardButton('Крипта и стартапы (Темщик)', callback_data='crypto'),
+        types.InlineKeyboardButton('Мода и стиль (Подшаренный)', callback_data='fashion'),
+        types.InlineKeyboardButton('Экология/Zero Waste', callback_data='zero_waste'),
+        types.InlineKeyboardButton('Ничего', callback_data='nothing')
+    )
+    bot.send_message(message.chat.id, 'Какой у тебя вкус к жизни?', reply_markup=lifestyle)
+    
 def get_age(message):
     user = get_user(message.chat.id)
     if user:
@@ -131,10 +181,21 @@ def show_profile(message):
         else:
             bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \start')
     except AttributeError:
-        bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \startaaaaaaaaaaaaaaaaaaa')
+        bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \start')
 
-
-
+@bot.callback_query_handler(func=lambda call: call.data in ['music', 'place', 'actives', 'pop_culter', 'lifestyle'])
+def handle_interests(call):
+    user = get_user(call.message.chat.id)
+    switcher = {
+        'music': lambda: user.interests['music'].append(call.data),
+        'place': lambda: user.interests['place'].append(call.data),
+        'actives': lambda: user.interests['actives'].append(call.data),
+        'pop_culter': lambda: user.interests['pop_culter'].append(call.data),
+        'lifestyle': lambda: user.interests['lifestyle'].append(call.data),
+        'nothing': lambda: None
+    }
+    func = switcher.get(call.data, lambda: None)
+    func()
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
