@@ -49,7 +49,7 @@ def delete_user(telegram_id: int) -> bool:
                 cursor = db.execute(query, (telegram_id,), commit=True)
                 return cursor is not None and cursor.rowcount > 0
 
-def get_all_users(): #-> List[dict]:
+def get_all_users():
         """Получение всех пользователей"""
         query = "SELECT * FROM users"
         with DataBase() as db:
