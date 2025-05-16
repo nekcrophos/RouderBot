@@ -1,6 +1,5 @@
 from baseModel import *
-from group import Group
-from usersGroup import GroupUsers
+
 
 
 class User(BaseModel):
@@ -16,6 +15,8 @@ class User(BaseModel):
     class Meta:
         table_name = "Users"
     def create_new_group(self, name, description = None, theme = None):
+        from usersGroup import GroupUsers
+        from group import Group
         new_group = Group.create(owner_id = self.telegram_id, name = name, description = description, theme = theme)
         GroupUsers.create(user_id = self.telegram_id, group_id = new_group.id)
         return new_group

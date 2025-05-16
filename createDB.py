@@ -1,8 +1,9 @@
 import sqlite3
 import sys
-from Rouder.database.base import *
-from Rouder.database.repositories.user_repo import *
-from Rouder.models.user import User
+# from Rouder.models.baseModel import *
+# from Rouder.database.base import *
+# from Rouder.database.repositories.user_repo import *
+# from Rouder.models.user import User
 # Подключаемся к БД (файл создастся автоматически)
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
@@ -34,10 +35,6 @@ SELECT * FROM Users
 conn.commit()
 conn.close()
 print('sas')
-k = get_all_users()
-print('users')
-for us in k:
-    print(us)
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
@@ -102,6 +99,41 @@ CREATE TABLE IF NOT EXISTS MeetingUsers (
   meeting_id integer NOT NULL,
   FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE,
   FOREIGN KEY (meeting_id) REFERENCES Meetings (id) ON DELETE CASCADE
+)
+''')
+conn.commit()
+conn.close()
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS Interests (
+  id integer PRIMARY KEY AUTOINCREMENT,
+  name nvarchar(255) NOT NULL
+  theme_id integer NOT NULL,
+  FOREIGN KEY (theme_id) REFERENCES Themes (id) ON DELETE CASCADE
+)
+''')
+conn.commit()
+conn.close()
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS InterestUsers(
+  id integer PRIMARY KEY AUTOINCREMENT,
+  interest_id integer NOT NULL,
+  user_id integer NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE,
+  FOREIGN KEY (interest_id) REFERENCES Interests (id) ON DELETE CASCADE
+)
+''')
+conn.commit()
+conn.close()
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS Themes(
+  id integer PRIMARY KEY AUTOINCREMENT,
+  name nvarchar(255) NOT NULL
 )
 ''')
 conn.commit()

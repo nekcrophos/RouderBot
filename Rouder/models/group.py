@@ -1,6 +1,5 @@
 from baseModel import *
 from user import User
-from usersGroup import GroupUsers
 
 class Group(BaseModel):
     id = AutoField(column_name = "id")
@@ -11,7 +10,9 @@ class Group(BaseModel):
     class Meta:
         table_name = "Groups"
     def addUser(self,user):
+        from usersGroup import GroupUsers
         GroupUsers.create(user_id=user.id,group_id=self.id)
     def getMembers(self):
+        from usersGroup import GroupUsers
         return GroupUsers.select().where(GroupUsers.group_id == self.id)
         
