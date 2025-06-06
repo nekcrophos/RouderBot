@@ -8,6 +8,14 @@ import sys
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
+CREATE TABLE IF NOT EXISTS Cities (
+ Id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name NVARCHAR(100),
+)
+''')
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
 CREATE TABLE IF NOT EXISTS Users (
  Id INTEGER PRIMARY KEY AUTOINCREMENT,
  telegram_id INTEGER UNIQUE,
@@ -17,6 +25,8 @@ CREATE TABLE IF NOT EXISTS Users (
  description VARCHAR(200),
  avatar VARCHAR(50),
  register BOOL
+ city INTEGER
+ FOREIGN KEY (city) REFERENCES Users (id) ON DELETE CASCADE
 )
 ''')
 conn.commit()

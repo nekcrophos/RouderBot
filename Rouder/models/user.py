@@ -1,5 +1,5 @@
 from baseModel import *
-
+from city import City
 
 class User(BaseModel):
     id = AutoField(column_name = "id")
@@ -10,6 +10,7 @@ class User(BaseModel):
     age = IntegerField(column_name = "age")
     description = TextField(column_name = "description")
     register = BooleanField(column_name = "register")
+    city = ForeignKeyField(City)
 
     class Meta:
         table_name = "Users"
