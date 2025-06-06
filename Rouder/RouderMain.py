@@ -2,35 +2,34 @@ from telebot import types
 import telebot
 import os
 from dotenv import load_dotenv
+from telebot.apihelper import ApiTelegramException
+
+from database.repositories.user_repo import *
+from models.user import User
 
 load_dotenv()
 token = os.getenv("TOKEN")
 bot = telebot.TeleBot(token)
 
-class User:
-    def __init__(self):
-        self.avatar = None
-        self.id = None
-        self.name = None
-        self.surname = None
-        self.decription = None
-        self.age = 0
-        self.register = False
-    
+global interests
+interests = {'music': [], 'place': [], 'actives': [], 'pop_culter': [], 'lifestyle': []}
+
+# Настройка команд бота
 commStart = types.BotCommand(command='/start', description='Начать бота')
 commHelp = types.BotCommand(command='/help', description='Помощь в использовании бота')
 commMyProf = types.BotCommand(command='/my_profile', description='Мой профиль')
 commChangeProf = types.BotCommand(command='/change_profile', description='Изменить профиль')
-
 bot.set_my_commands([commStart, commHelp, commMyProf, commChangeProf])
 
-users = {}
-
-with open('introduction.txt', 'r', encoding='utf-8') as f:
+# Загрузка текстов
+with open('Rouder\\introduction.txt', 'r', encoding='utf-8') as f:
     introduction = f.read()
-
-with open('pream.txt', 'r', encoding='utf-8') as f:
+with open('Rouder\\pream.txt', 'r', encoding='utf-8') as f:
     preamble = f.read()
+
+# Состояния пользователей
+user_states = {}
+user_choices = {}
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -53,40 +52,199 @@ def handle_introduction(call):
     else:
         bot.send_message(call.message.chat.id, "Жаль, возвращайся когда будешь готов!")
 
+# Регистрация пользователя
+
 def get_name(message):
     user = User()
-    user.id = message.chat.id
+    user.telegram_id = message.chat.id
     user.name = message.text
-    users[message.chat.id] = user
-    
+    add_user(user)
     msg = bot.send_message(message.chat.id, "Какая у тебя фамилия?")
     bot.register_next_step_handler(msg, get_surname)
 
 def get_surname(message):
-    user = users.get(message.chat.id)
+    user = users[message.chat.id]
     if user:
         user.surname = message.text
         msg = bot.send_message(message.chat.id, "Отправь свою аватарку?")
         bot.register_next_step_handler(msg, get_avatar)
 
 def get_avatar(message):
-    user = users.get(message.chat.id)
-    if user:
+    user = get_user(message.chat.id)
+    if user and message.photo:
         photo = message.photo[-1]
         file_info = bot.get_file(photo.file_id)
-        dowloaded_file = bot.download_file(file_info.file_path)
-        save_path = f'avatars\{message.chat.id}_user_avatar.jpg'
+        downloaded_file = bot.download_file(file_info.file_path)
+        save_path = f"Rouder\\avatars\\{message.chat.id}_user_avatar.{file_info.file_path.split('.')[-1]}"
         with open(save_path, 'wb') as new_avatar:
-            new_avatar.write(dowloaded_file)
+            new_avatar.write(downloaded_file)
         user.avatar = save_path
-        #bot.reply_to(message, 'Аватар сохранён')
-        msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
+        update_user(user)
+        start_interest_selection(message)
+
+# Начало опроса по интересам
+
+def start_interest_selection(message):
+    chat_id = message.chat.id
+    user_states[chat_id] = {
+        'current_topic': 0,
+        'topics': ['music', 'place', 'actives', 'pop_culter', 'lifestyle'],
+        'selected': {}
+    }
+    user_choices[chat_id] = {topic: [] for topic in user_states[chat_id]['topics']}
+    send_topic(chat_id)
+
+# Отправка темы
+
+def send_topic(chat_id):
+    state = user_states.get(chat_id)
+    if not state or state['current_topic'] >= len(state['topics']):
+        return
+
+    topic = state['topics'][state['current_topic']]
+    markup = types.InlineKeyboardMarkup()
+    next_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    next_keyboard.add(types.KeyboardButton('Следующая тема ➡️'))
+
+    if topic == 'music':
+        markup.add(
+            types.InlineKeyboardButton('Рок/Альтернатива', callback_data='music_rock'),
+            types.InlineKeyboardButton('Электронная музыка', callback_data='music_electro'),
+            types.InlineKeyboardButton('Хип-хоп/R&B', callback_data='music_hiphop'),
+            types.InlineKeyboardButton('Поп', callback_data='music_pop'),
+            types.InlineKeyboardButton('Шансон', callback_data='music_shanson')
+        )
+        text = '🎵 Какая у тебя музыкальная ориентация?'
+    elif topic == 'place':
+        markup.add(
+            types.InlineKeyboardButton('Кофейный сноб', callback_data='place_coffee'),
+            types.InlineKeyboardButton('Вино и сыр', callback_data='place_wine'),
+            types.InlineKeyboardButton('Крафтовое пиво', callback_data='place_beer'),
+            types.InlineKeyboardButton('Рестораны', callback_data='place_restaurant'),
+            types.InlineKeyboardButton('Уличная еда', callback_data='place_streetfood')
+        )
+        text = '🍽️ Какой у тебя вкус к местам?'
+    elif topic == 'actives':
+        markup.add(
+            types.InlineKeyboardButton('Настольные игры', callback_data='actives_boardgames'),
+            types.InlineKeyboardButton('Квизы', callback_data='actives_quizes'),
+            types.InlineKeyboardButton('Караоке', callback_data='actives_karaoke'),
+            types.InlineKeyboardButton('Танцы', callback_data='actives_dances'),
+            types.InlineKeyboardButton('Спорт', callback_data='actives_sports')
+        )
+        text = '🎲 Что ты предпочитаешь в местах отдыха?'
+    elif topic == 'pop_culter':
+        markup.add(
+            types.InlineKeyboardButton('Кино/сериалы', callback_data='pop_cinema'),
+            types.InlineKeyboardButton('Комиксы', callback_data='pop_comics'),
+            types.InlineKeyboardButton('Аниме', callback_data='pop_anime'),
+            types.InlineKeyboardButton('Ностальгия', callback_data='pop_nostalgia'),
+            types.InlineKeyboardButton('Книги', callback_data='pop_books')
+        )
+        text = '🎥 Какой у тебя вкус к поп-культуре?'
+    else:  # topic == 'lifestyle'
+        markup.add(
+            types.InlineKeyboardButton('ЗОЖ', callback_data='life_zoj'),
+            types.InlineKeyboardButton('Путешествия', callback_data='life_travel'),
+            types.InlineKeyboardButton('Крипта', callback_data='life_crypto'),
+            types.InlineKeyboardButton('Мода', callback_data='life_fashion'),
+            types.InlineKeyboardButton('Экология', callback_data='life_ecology')
+        )
+        text = '🌱 Какой у тебя стиль жизни?'
+
+    markup.add(types.InlineKeyboardButton('Пропустить тему', callback_data='skip'))
+    bot.send_message(chat_id, text, reply_markup=markup)
+    bot.send_message(chat_id, "Выбери несколько вариантов, затем нажми ➡️", reply_markup=next_keyboard)
+
+# Обработка выбора интересов
+
+@bot.callback_query_handler(func=lambda call: call.data in ['skip'] or call.data.startswith(('music_', 'place_', 'actives_', 'pop_', 'life_')))
+def handle_interest(call):
+    bot.answer_callback_query(call.id)
+    chat_id = call.message.chat.id
+    data = call.data
+
+    if data == 'skip':
+        handle_next_topic(call.message)
+        return
+
+    prefix, value = data.split('_', 1)
+    # Маппинг префиксов
+    category_map = {'pop': 'pop_culter', 'life': 'lifestyle'}
+    category = category_map.get(prefix, prefix)
+
+    if category in user_choices.get(chat_id, {}):
+        if value in user_choices[chat_id][category]:
+            user_choices[chat_id][category].remove(value)
+        else:
+            user_choices[chat_id][category].append(value)
+
+    update_message_markup(call.message)
+
+# Обновление разметки кнопок
+
+def update_message_markup(message):
+    chat_id = message.chat.id
+    state = user_states.get(chat_id)
+    if not state or state['current_topic'] >= len(state['topics']):
+        return
+
+    topic = state['topics'][state['current_topic']]
+    if not message.reply_markup:
+        return
+
+    old = message.reply_markup.to_dict()['inline_keyboard']
+    new_markup = types.InlineKeyboardMarkup()
+    has_changes = False
+
+    for row in old:
+        buttons = []
+        for btn in row:
+            if btn['callback_data'] == 'skip':
+                buttons.append(types.InlineKeyboardButton(text=btn['text'], callback_data='skip'))
+                continue
+            _, val = btn['callback_data'].split('_', 1)
+            base_text = btn['text'].split(' ✓')[0]
+            if val in user_choices[chat_id][topic]:
+                text = base_text + ' ✓'
+            else:
+                text = base_text
+            if text != btn['text']:
+                has_changes = True
+            buttons.append(types.InlineKeyboardButton(text=text, callback_data=btn['callback_data']))
+        new_markup.row(*buttons)
+
+    if has_changes:
+        try:
+            bot.edit_message_reply_markup(chat_id=chat_id, message_id=message.message_id, reply_markup=new_markup)
+        except ApiTelegramException as e:
+            if "message is not modified" not in str(e):
+                raise e
+
+@bot.message_handler(func=lambda m: m.text == 'Следующая тема ➡️')
+def handle_next_topic(message):
+    chat_id = message.chat.id
+    state = user_states.get(chat_id)
+    if not state:
+        return
+
+    if state['current_topic'] < len(state['topics']):
+        topic = state['topics'][state['current_topic']]
+        interests[topic] = user_choices[chat_id][topic]
+    state['current_topic'] += 1
+
+    if state['current_topic'] < len(state['topics']):
+        bot.delete_message(chat_id, message.message_id)
+        send_topic(chat_id)
+    else:
+        bot.send_message(chat_id, "✅ Выбор интересов завершен!", reply_markup=types.ReplyKeyboardRemove())
+        msg = bot.send_message(chat_id, "Сколько тебе лет?")
         bot.register_next_step_handler(msg, get_age)
 
-
+# Возраст и подтверждение профиля
 
 def get_age(message):
-    user = users.get(message.chat.id)
+    user = users[message.chat.id]
     if user:
         try:
             age = int(message.text)
@@ -94,50 +252,57 @@ def get_age(message):
                 bot.send_message(message.chat.id, "Вам должно быть больше 18 лет!")
                 return
             user.age = age
+            update_user(user)
+            confirm_profile(message)
         except ValueError:
             msg = bot.send_message(message.chat.id, "Введите число!")
             bot.register_next_step_handler(msg, get_age)
-            return
-        
-        keyboard = types.InlineKeyboardMarkup()
-        keyboard.add(
-            types.InlineKeyboardButton('Да', callback_data='confirm_yes'),
-            types.InlineKeyboardButton('Нет', callback_data='confirm_no')
-        )
-        text = f"Тебе {age} лет, тебя зовут {user.name} {user.surname}?"
-        bot.send_message(message.chat.id, text, reply_markup=keyboard)
 
+def confirm_profile(message):
+    user = get_user(message.chat.id)
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(
+        types.InlineKeyboardButton('Да', callback_data='confirm_yes'),
+        types.InlineKeyboardButton('Нет', callback_data='confirm_no')
+    )
+    text = f"Тебе {user.age} лет, тебя зовут {user.name} {user.surname}?"
+    bot.send_message(message.chat.id, text, reply_markup=keyboard)
+
+# Подтверждение регистрации
 
 @bot.callback_query_handler(func=lambda call: call.data in ['confirm_yes', 'confirm_no'])
 def handle_confirmation(call):
-    user = users.get(call.message.chat.id)
+    bot.answer_callback_query(call.id)
+    user = get_user(call.message.chat.id)
     if call.data == 'confirm_yes':
         user.register = True
-        msg = bot.send_message(call.message.chat.id, "Отлично! Регистрация завершена!")
-        bot.answer_callback_query(call.id)
-        bot.register_next_step_handler(msg, show_profile)
-        # Здесь можно сохранить пользователя в БД
+        interests = user_choices[call.message.chat.id]
+        update_user(user)
+        bot.send_message(call.message.chat.id, "🎉 Регистрация завершена!")
+        show_profile(call.message)
     else:
-        bot.answer_callback_query(call.id)
+        delete_user(call.message.chat.id)
         bot.send_message(call.message.chat.id, "Давайте начнем заново!")
-        msg = bot.send_message(call.message.chat.id, "Как тебя зовут?")
-        bot.register_next_step_handler(msg, get_name)
+        start(call.message)
 
-@bot.message_handler(commands=['my_profile'])
+# Показ профиля
+
 def show_profile(message):
-    user = users.get(message.chat.id)
-    try:
-        if (user.register == True):
-            user_avatar = open(user.avatar, 'rb')
-            bot.send_photo(message.chat.id, photo=user_avatar,caption=f'Имя: {user.name} \n Фамилия: {user.surname} \n Возраст: {user.age}')
-            #bot.send_message(message.chat.id,f'{user_avatar} \n Имя: {user.name} \n Фамилия: {user.surname} \n Возраст: {user.age}') # Картинка профиля, описание
-        else:
-            bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \start')
-    except AttributeError:
-        bot.send_message(message.chat.id, 'У вас ещё нет профиля. Напишите \start')
-
-
-
+    user = get_user(message.chat.id)
+    if user and user.register:
+        try:
+            print()
+            #interests_text = "\n".join([f"• {', '.join(v)}" for v in user.interests.values() if v])
+            with open(user.avatar, 'rb') as photo:
+                bot.send_photo(
+                    message.chat.id,
+                    photo,
+                    caption=f"👤 {user.name} {user.surname}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
+                )
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Ошибка загрузки профиля: {str(e)}")
+    else:
+        bot.send_message(message.chat.id, "Профиль не найден. Начните с /start")
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
