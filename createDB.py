@@ -10,9 +10,11 @@ cursor = conn.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS Cities (
  Id INTEGER PRIMARY KEY AUTOINCREMENT,
- name NVARCHAR(100),
+ name NVARCHAR(100)
 )
 ''')
+conn.commit()
+conn.close()
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
@@ -24,9 +26,9 @@ CREATE TABLE IF NOT EXISTS Users (
  age INT,
  description VARCHAR(200),
  avatar VARCHAR(50),
- register BOOL
- city INTEGER
- FOREIGN KEY (city) REFERENCES Users (id) ON DELETE CASCADE
+ register BOOL,
+ city INTEGER,
+ FOREIGN KEY (city) REFERENCES Cities (id) ON DELETE CASCADE
 )
 ''')
 conn.commit()

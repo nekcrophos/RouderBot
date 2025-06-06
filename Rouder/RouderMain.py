@@ -3,6 +3,8 @@ import telebot
 import os
 from dotenv import load_dotenv
 from telebot.apihelper import ApiTelegramException
+from geopy.geocoders import Nominatim 
+from models.city import City
 
 from database.repositories.user_repo import *
 from models.user import User
@@ -13,6 +15,7 @@ load_dotenv()
 token = os.getenv("TOKEN")
 bot = telebot.TeleBot(token)
 
+geolocator = Nominatim(user_agent="my_geopy_app")
 global interests
 interests = {'music': [], 'place': [], 'actives': [], 'pop_culter': [], 'lifestyle': []}
 global users
@@ -161,8 +164,62 @@ def send_topic(chat_id):
     bot.send_message(chat_id, text, reply_markup=markup)
     bot.send_message(chat_id, "Выбери несколько вариантов, затем нажми ➡️", reply_markup=next_keyboard)
 
-# Обработка выбора интересов
+# Получение местоположения
+def get_location(message):
+    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    button_geo = types.KeyboardButton(text="Отправить местоположение", request_location=True)
+    keyboard.add(button_geo)
+    bot.send_message(message.chat.id, "Поделись местоположением", reply_markup=keyboard)
 
+    geolocator = Nominatim(user_agent = "name_of_your_app")
+   
+    # Возраст и подтверждение профиля
+
+def get_age(message):
+    user = users[message.chat.id]
+    if user:
+        try:
+            age = int(message.text)
+            print(age)
+            if age < 18:
+                bot.send_message(message.chat.id, "Вам должно быть больше 18 лет!")
+                return
+            user.age = age
+            confirm_profile(message)
+        except ValueError:
+            msg = bot.send_message(message.chat.id, "Введите число!")
+            bot.register_next_step_handler(msg, get_age)
+
+def confirm_profile(message):
+    print("confirm_profile")
+    user = users[message.chat.id]
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(
+        types.InlineKeyboardButton('Да', callback_data='confirm_yes'),
+        types.InlineKeyboardButton('Нет', callback_data='confirm_no')
+    )
+    bot.send_message(text = f"Тебе {user.age} лет, тебя зовут {user.name} {user.surname}?", reply_markup=keyboard, chat_id=message.chat.id)
+
+
+
+@bot.message_handler(content_types=['location'])
+def location (message):
+    user = users[message.chat.id]
+    latitude = message.location.latitude  
+    longitude = message.location.longitude 
+
+    # Определяем город с помощью обратного геокодирования  
+    location = geolocator.reverse('{} {}'.format(message.location.latitude, message.location.longitude))
+    address = location.raw['address']
+    city = address.get('city', '')
+    City.get_id(city)
+    user.city = city
+    bot.send_message(message.chat.id, "✅ Местоположение получено", reply_markup=types.ReplyKeyboardRemove())
+    msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
+    bot.register_next_step_handler(msg, get_age)
+    
+
+# Обработка выбора интересов
 @bot.callback_query_handler(func=lambda call: call.data in ['skip'] or call.data.startswith(('music_', 'place_', 'actives_', 'pop_', 'life_')))
 def handle_interest(call):
     bot.answer_callback_query(call.id)
@@ -244,33 +301,9 @@ def handle_next_topic(message):
         send_topic(chat_id)
     else:
         bot.send_message(chat_id, "✅ Выбор интересов завершен!", reply_markup=types.ReplyKeyboardRemove())
-        msg = bot.send_message(chat_id, "Сколько тебе лет?")
-        bot.register_next_step_handler(msg, get_age)
+        get_location(message)
 
-# Возраст и подтверждение профиля
 
-def get_age(message):
-    user = users[message.chat.id]
-    if user:
-        try:
-            age = int(message.text)
-            if age < 18:
-                bot.send_message(message.chat.id, "Вам должно быть больше 18 лет!")
-                return
-            user.age = age
-            confirm_profile(message)
-        except ValueError:
-            msg = bot.send_message(message.chat.id, "Введите число!")
-            bot.register_next_step_handler(msg, get_age)
-
-def confirm_profile(message):
-    user = users[message.chat.id]
-    keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(
-        types.InlineKeyboardButton('Да', callback_data='confirm_yes'),
-        types.InlineKeyboardButton('Нет', callback_data='confirm_no')
-    )
-    text = f"Тебе {user.age} лет, тебя зовут {user.name} {user.surname}?"
 
 # Подтверждение регистрации
 
@@ -299,7 +332,7 @@ def show_profile(message):
                 bot.send_photo(
                     message.chat.id,
                     photo,
-                    caption=f"👤 {user.name} {user.surname}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
+                    caption=f"👤 {user.name} {user.surname}, {user.city}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
                 )
         except Exception as e:
             bot.send_message(message.chat.id, f"Ошибка загрузки профиля: {str(e)}")

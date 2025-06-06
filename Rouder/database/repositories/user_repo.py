@@ -3,9 +3,9 @@ import sys
 
 sys.path.insert(1, 'Rouder\database')
 # import base
-from base import *
+from database.base import *
 sys.path.insert(1, 'Rouder\models')
-from user import User
+from models.user import User
 
 def add_userA(telegram_id: int, name: str, surname: str, age: int) -> bool:
         query = """
