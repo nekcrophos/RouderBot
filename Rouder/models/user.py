@@ -10,7 +10,7 @@ class User(BaseModel):
     age = IntegerField(column_name = "age")
     description = TextField(column_name = "description")
     register = BooleanField(column_name = "register")
-    city = ForeignKeyField(City, null=True)
+    city = ForeignKeyField(City, null=True, column_name = "city")
 
     class Meta:
         table_name = "Users"

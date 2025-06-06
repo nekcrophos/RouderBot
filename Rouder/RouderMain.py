@@ -51,7 +51,6 @@ def start(message):
 @bot.message_handler(commands=['my_profile'])
 def my_profile(message):
     show_profile(message)
-    bot.send_message(message.chat.id, "Жаль, возвращайся когда будешь готов!")
 @bot.callback_query_handler(func=lambda call: call.data in ['yes_indeed', 'no_imnot'])
 def handle_introduction(call):
     bot.answer_callback_query(call.id)
@@ -212,8 +211,8 @@ def location (message):
     location = geolocator.reverse('{} {}'.format(message.location.latitude, message.location.longitude))
     address = location.raw['address']
     city = address.get('city', '')
-    City.get_id(city)
-    user.city = city
+    city_id = City.get_id(city)
+    user.city = city_id
     bot.send_message(message.chat.id, "✅ Местоположение получено", reply_markup=types.ReplyKeyboardRemove())
     msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
     bot.register_next_step_handler(msg, get_age)
@@ -332,7 +331,7 @@ def show_profile(message):
                 bot.send_photo(
                     message.chat.id,
                     photo,
-                    caption=f"👤 {user.name} {user.surname}, {user.city}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
+                    caption=f"👤 {user.name} {user.surname}, {user.city.name}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
                 )
         except Exception as e:
             bot.send_message(message.chat.id, f"Ошибка загрузки профиля: {str(e)}")

@@ -7,7 +7,9 @@ class City(BaseModel):
 
     @staticmethod    
     def get_id(city):
-        adx = City.get(City.name == city)
-        if adx is None:
-            adx = City.create(name=city)
-        return adx.id
+        print(city)
+        adx = [c.name for c in City.select().where(City.name == city)]
+        print(adx)
+        if len(adx) == 0:
+            adx.append(City.create(name=city))
+        return adx[0].id
