@@ -6,6 +6,8 @@ from telebot.apihelper import ApiTelegramException
 
 from database.repositories.user_repo import *
 from models.user import User
+from models.interest import Interest
+from models.theme import Theme
 
 load_dotenv()
 token = os.getenv("TOKEN")
@@ -13,7 +15,8 @@ bot = telebot.TeleBot(token)
 
 global interests
 interests = {'music': [], 'place': [], 'actives': [], 'pop_culter': [], 'lifestyle': []}
-
+global users
+users = {}
 # Настройка команд бота
 commStart = types.BotCommand(command='/start', description='Начать бота')
 commHelp = types.BotCommand(command='/help', description='Помощь в использовании бота')
@@ -42,7 +45,10 @@ def start(message):
         types.InlineKeyboardButton('Нет', callback_data='no_imnot')
     )
     bot.send_message(message.chat.id, preamble, reply_markup=keyboard)
-
+@bot.message_handler(commands=['my_profile'])
+def my_profile(message):
+    show_profile(message)
+    bot.send_message(message.chat.id, "Жаль, возвращайся когда будешь готов!")
 @bot.callback_query_handler(func=lambda call: call.data in ['yes_indeed', 'no_imnot'])
 def handle_introduction(call):
     bot.answer_callback_query(call.id)
@@ -55,10 +61,10 @@ def handle_introduction(call):
 # Регистрация пользователя
 
 def get_name(message):
-    user = User()
+    users[message.chat.id] = User()
+    user = users[message.chat.id]
     user.telegram_id = message.chat.id
     user.name = message.text
-    add_user(user)
     msg = bot.send_message(message.chat.id, "Какая у тебя фамилия?")
     bot.register_next_step_handler(msg, get_surname)
 
@@ -70,7 +76,7 @@ def get_surname(message):
         bot.register_next_step_handler(msg, get_avatar)
 
 def get_avatar(message):
-    user = get_user(message.chat.id)
+    user = users[message.chat.id]
     if user and message.photo:
         photo = message.photo[-1]
         file_info = bot.get_file(photo.file_id)
@@ -79,7 +85,6 @@ def get_avatar(message):
         with open(save_path, 'wb') as new_avatar:
             new_avatar.write(downloaded_file)
         user.avatar = save_path
-        update_user(user)
         start_interest_selection(message)
 
 # Начало опроса по интересам
@@ -204,9 +209,10 @@ def update_message_markup(message):
                 buttons.append(types.InlineKeyboardButton(text=btn['text'], callback_data='skip'))
                 continue
             _, val = btn['callback_data'].split('_', 1)
-            base_text = btn['text'].split(' ✓')[0]
+            base_text = btn['text'].split('✓ ')
+            base_text = base_text[1] if len(base_text) > 1 else base_text[0]
             if val in user_choices[chat_id][topic]:
-                text = base_text + ' ✓'
+                text = '✓ ' + base_text
             else:
                 text = base_text
             if text != btn['text']:
@@ -252,47 +258,43 @@ def get_age(message):
                 bot.send_message(message.chat.id, "Вам должно быть больше 18 лет!")
                 return
             user.age = age
-            update_user(user)
             confirm_profile(message)
         except ValueError:
             msg = bot.send_message(message.chat.id, "Введите число!")
             bot.register_next_step_handler(msg, get_age)
 
 def confirm_profile(message):
-    user = get_user(message.chat.id)
+    user = users[message.chat.id]
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(
         types.InlineKeyboardButton('Да', callback_data='confirm_yes'),
         types.InlineKeyboardButton('Нет', callback_data='confirm_no')
     )
     text = f"Тебе {user.age} лет, тебя зовут {user.name} {user.surname}?"
-    bot.send_message(message.chat.id, text, reply_markup=keyboard)
 
 # Подтверждение регистрации
 
 @bot.callback_query_handler(func=lambda call: call.data in ['confirm_yes', 'confirm_no'])
 def handle_confirmation(call):
     bot.answer_callback_query(call.id)
-    user = get_user(call.message.chat.id)
+    user = users[call.message.chat.id]
     if call.data == 'confirm_yes':
         user.register = True
-        interests = user_choices[call.message.chat.id]
-        update_user(user)
+        user.save()
+        user.save_interests(user_choices[call.message.chat.id])
         bot.send_message(call.message.chat.id, "🎉 Регистрация завершена!")
         show_profile(call.message)
     else:
-        delete_user(call.message.chat.id)
         bot.send_message(call.message.chat.id, "Давайте начнем заново!")
         start(call.message)
 
 # Показ профиля
 
 def show_profile(message):
-    user = get_user(message.chat.id)
+    user = User.get(User.telegram_id == message.chat.id)
     if user and user.register:
         try:
-            print()
-            #interests_text = "\n".join([f"• {', '.join(v)}" for v in user.interests.values() if v])
+            interests = user.get_themes_interests()
             with open(user.avatar, 'rb') as photo:
                 bot.send_photo(
                     message.chat.id,
