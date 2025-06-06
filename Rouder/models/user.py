@@ -41,5 +41,3 @@ class User(BaseModel):
                 interests[theme_name] = []
             interests[theme_name].append(interest.name)
         return interests
-            
-        

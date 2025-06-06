@@ -339,5 +339,17 @@ def show_profile(message):
     else:
         bot.send_message(message.chat.id, "Профиль не найден. Начните с /start")
 
+# Функция для удаления профиля
+@bot.message_handler(commands=['change_profile'])
+def change_profile(message):
+    user = User.get(User.telegram_id == message.chat.id)
+    if user:
+        user.delete_instance()
+        bot.send_message(message.chat.id, "Профиль успешно удален. Вы можете начать заново с /start")
+    else:
+        bot.send_message(message.chat.id, "Профиль не найден. Начните с /start")
+
+
+    
 if __name__ == '__main__':
     bot.polling(none_stop=True)
