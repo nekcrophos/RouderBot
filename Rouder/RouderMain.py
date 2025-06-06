@@ -4,12 +4,12 @@ import os
 from dotenv import load_dotenv
 from telebot.apihelper import ApiTelegramException
 from geopy.geocoders import Nominatim 
-from models.city import City
 
 from database.repositories.user_repo import *
 from models.user import User
 from models.interest import Interest
 from models.theme import Theme
+from models.city import City
 
 load_dotenv()
 token = os.getenv("TOKEN")
