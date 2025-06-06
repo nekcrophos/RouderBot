@@ -339,5 +339,8 @@ def show_profile(message):
     else:
         bot.send_message(message.chat.id, "Профиль не найден. Начните с /start")
 
+# Функция для удаления профиля
+
+    
 if __name__ == '__main__':
     bot.polling(none_stop=True)
