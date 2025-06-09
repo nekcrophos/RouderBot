@@ -20,12 +20,14 @@ global interests
 interests = {'music': [], 'place': [], 'actives': [], 'pop_culter': [], 'lifestyle': []}
 global users
 users = {}
+search_sessions = {}
 # Настройка команд бота
 commStart = types.BotCommand(command='/start', description='Начать бота')
 commHelp = types.BotCommand(command='/help', description='Помощь в использовании бота')
 commMyProf = types.BotCommand(command='/my_profile', description='Мой профиль')
 commChangeProf = types.BotCommand(command='/change_profile', description='Изменить профиль')
-bot.set_my_commands([commStart, commHelp, commMyProf, commChangeProf])
+commSearch = types.BotCommand(command='/search', description='Поиск партнеров')
+bot.set_my_commands([commStart, commHelp, commMyProf, commChangeProf, commSearch])
 
 # Загрузка текстов
 with open('Rouder\\introduction.txt', 'r', encoding='utf-8') as f:
@@ -51,7 +53,6 @@ def start(message):
 @bot.message_handler(commands=['my_profile'])
 def my_profile(message):
     show_profile(message)
-    bot.send_message(message.chat.id, "Жаль, возвращайся когда будешь готов!")
 @bot.callback_query_handler(func=lambda call: call.data in ['yes_indeed', 'no_imnot'])
 def handle_introduction(call):
     bot.answer_callback_query(call.id)
@@ -332,7 +333,7 @@ def show_profile(message):
                 bot.send_photo(
                     message.chat.id,
                     photo,
-                    caption=f"👤 {user.name} {user.surname}, {user.city}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
+                    caption=f"👤 {user.name} {user.surname}, {user.city.name}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
                 )
         except Exception as e:
             bot.send_message(message.chat.id, f"Ошибка загрузки профиля: {str(e)}")
@@ -350,6 +351,108 @@ def change_profile(message):
         bot.send_message(message.chat.id, "Профиль не найден. Начните с /start")
 
 
-    
+@bot.message_handler(commands=['search'])
+def search(message):
+    me = User.get_or_none(User.telegram_id == message.chat.id)
+    if not me or not me.register:
+        bot.send_message(message.chat.id, "❌ Вы не зарегистрированы. Сначала зарегистрируйтесь!")
+        return
+
+    # Мои интересы
+    my_ids = {i[0] for i in
+              Interest.select(Interest.id)
+                      .join(InterestUser)
+                      .where(InterestUser.user_id == me.id)
+                      .tuples()}
+
+    # Диапазон возраста
+    min_age = max(18, me.age - 2)
+    max_age = me.age + 2
+
+    # Берём кандидатов сразу с возрастным фильтром
+    candidates = User.select().where(
+        (User.id != me.id) &
+        (User.register == True) &
+        (User.age.between(min_age, max_age))
+    )
+
+    # Считаем для каждого критерии совпадения
+    scored = []
+    for u in candidates:
+        same_city = (u.city_id == me.city_id)
+        age_diff   = abs(u.age - me.age)
+        their_ids  = {i[0] for i in
+                      Interest.select(Interest.id)
+                              .join(InterestUser)
+                              .where(InterestUser.user_id == u.id)
+                              .tuples()}
+        common     = len(my_ids & their_ids)
+        scored.append((u.id, same_city, age_diff, common))
+
+    # Сортируем по (город, возраст, интересы)
+    scored.sort(key=lambda x: (not x[1], x[2], -x[3]))
+
+    if not scored:
+        return bot.send_message(message.chat.id, "Никого не найдено в этом возрастном диапазоне.")
+
+    # Сохраняем только список ID
+    candidate_ids = [item[0] for item in scored]
+    search_sessions[message.chat.id] = {
+        'ids': candidate_ids,
+        'idx': 0
+    }
+
+    show_candidate(message.chat.id)
+
+
+def show_candidate(chat_id):
+    sess = search_sessions.get(chat_id)
+    if not sess:
+        return
+
+    idx = sess['idx']
+    if idx >= len(sess['ids']):
+        return bot.send_message(chat_id, "Показаны все варианты!")
+
+    # Загружаем пользователя по ID «на лету»
+    u = User.get_by_id(sess['ids'][idx])
+
+    # (Можно заново пересчитать same_city, common и т.д. если нужны в подписи;
+    #  здесь для простоты покажем только базовую инфу)
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton("❤️ Лайк", callback_data='like'),
+        types.InlineKeyboardButton("💔 Дизлайк", callback_data='dislike')
+    )
+
+    caption = f"👤 {u.name} {u.surname}, {u.city.name}\n🔞 {u.age} лет"
+
+    try:
+        with open(u.avatar, 'rb') as ph:
+            bot.send_photo(chat_id, ph, caption=caption, reply_markup=kb)
+    except:
+        bot.send_message(chat_id, caption, reply_markup=kb)
+
+
+@bot.callback_query_handler(func=lambda c: c.data in ['like', 'dislike'])
+def on_feedback(call):
+    chat_id = call.message.chat.id
+    sess = search_sessions.get(chat_id)
+    if not sess:
+        return bot.answer_callback_query(call.id, "Сессия не найдена.")
+
+    idx = sess['idx']
+    user_id = sess['ids'][idx]
+    # TODO: здесь можно сохранять Feedback(user_from=call.from_user.id, user_to=user_id, like=(c.data=='like'))
+
+    sess['idx'] += 1
+    bot.answer_callback_query(call.id, "Принято!")
+    try:
+        bot.delete_message(chat_id, call.message.message_id)
+    except:
+        pass
+
+    show_candidate(chat_id) 
+
 if __name__ == '__main__':
     bot.polling(none_stop=True)
