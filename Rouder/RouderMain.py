@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from telebot.apihelper import ApiTelegramException
 from geopy.geocoders import Nominatim 
 
+from RouderBot.Rouder.models.feedback import Feedback
 from database.repositories.user_repo import *
 from models.user import User
 from models.interest import Interest
@@ -437,13 +438,29 @@ def show_candidate(chat_id):
 @bot.callback_query_handler(func=lambda c: c.data in ['like', 'dislike'])
 def on_feedback(call):
     chat_id = call.message.chat.id
+    me = User.get(User.telegram_id == chat_id)
     sess = search_sessions.get(chat_id)
     if not sess:
         return bot.answer_callback_query(call.id, "Сессия не найдена.")
 
     idx = sess['idx']
-    user_id = sess['ids'][idx]
-    # TODO: здесь можно сохранять Feedback(user_from=call.from_user.id, user_to=user_id, like=(c.data=='like'))
+    target_id = sess['ids'][idx]
+
+    # Сохраняем реакцию
+    liked = (call.data == 'like')
+    Feedback.create(user_from=me.id, user_to=target_id, liked=liked)
+
+    # Если это лайк, проверяем, не лайкнул ли target нас раньше
+    if liked:
+        mutual = Feedback.get_or_none(
+            (Feedback.user_from == target_id) &
+            (Feedback.user_to   == me.id) &
+            (Feedback.liked     == True)
+        )
+        if mutual:
+            # у нас совпадение!
+            notify_match(me.id,      target_id)
+            notify_match(target_id,  me.id)
 
     sess['idx'] += 1
     bot.answer_callback_query(call.id, "Принято!")
@@ -452,7 +469,75 @@ def on_feedback(call):
     except:
         pass
 
-    show_candidate(chat_id) 
+    show_candidate(chat_id)
+
+
+def notify_match(user_id, other_id):
+    """Шлёт пользователю user_id уведомление о матче с other_id."""
+    u = User.get_by_id(user_id)
+    other = User.get_by_id(other_id)
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton("Показать профиль", callback_data=f"show_match_{other_id}"),
+        types.InlineKeyboardButton("Нет, позже",      callback_data="ignore_match")
+    )
+    bot.send_message(
+        u.telegram_id,
+        f"🎉 У вас взаимный лайк с @{get_username(other.telegram_id)}!",
+        reply_markup=kb
+    )
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith('show_match_'))
+def on_show_match(call):
+    # Парсим ID партнёра из callback_data
+    other_id = int(call.data.split('_')[-1])
+    you = User.get(User.telegram_id == call.message.chat.id)
+    other = User.get_by_id(other_id)
+
+    # Формируем подпись с Telegram-username для связи
+    username = get_username(other.telegram_id)
+    caption = (
+        f"👤 {other.name} {other.surname} (@{username})\n"
+        f"🌆 Город: {other.city.name}\n"
+        f"🔞 Возраст: {other.age}\n"
+        f"🎯 Интересы:\n"
+        f"{other.get_themes_interests()}\n\n"
+        f"Пиши @${username}, чтобы познакомиться!"
+    )
+    try:
+        with open(other.avatar, 'rb') as ph:
+            bot.send_photo(call.message.chat.id, ph, caption=caption)
+    except:
+        bot.send_message(call.message.chat.id, caption)
+
+    bot.answer_callback_query(call.id)
+    # Удалим уведомление о матче, чтобы не мешалось
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except:
+        pass
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'ignore_match')
+def on_ignore_match(call):
+    # Просто удаляем notification
+    bot.answer_callback_query(call.id, "Ок, позже напомню")
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except:
+        pass
+
+
+def get_username(telegram_id: int) -> str:
+    """Пытаемся достать Telegram-username через get_chat.
+       Если нет — вернём telegram_id."""
+    try:
+        member = bot.get_chat(telegram_id)
+        return member.username or str(telegram_id)
+    except:
+        return str(telegram_id)
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
