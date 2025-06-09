@@ -213,8 +213,8 @@ def location (message):
     location = geolocator.reverse('{} {}'.format(message.location.latitude, message.location.longitude))
     address = location.raw['address']
     city = address.get('city', '')
-    City.get_id(city)
-    user.city = city
+    city_id = City.get_id(city)
+    user.city = city_id
     bot.send_message(message.chat.id, "✅ Местоположение получено", reply_markup=types.ReplyKeyboardRemove())
     msg = bot.send_message(message.chat.id, "Сколько тебе лет?")
     bot.register_next_step_handler(msg, get_age)
