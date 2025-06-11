@@ -6,3 +6,4 @@ from . import city
 from . import meetingUser
 from . import review
 from . import usersGroup
+from . import feedback

@@ -7,12 +7,12 @@ from dotenv import load_dotenv
 from telebot.apihelper import ApiTelegramException
 from geopy.geocoders import Nominatim 
 
-from RouderBot.Rouder.models.feedback import Feedback
 from database.repositories.user_repo import *
 from models.user import User
 from models.interest import Interest
 from models.theme import Theme
 from models.city import City
+from models.feedback import Feedback
 
 load_dotenv()
 token = os.getenv("TOKEN")
@@ -421,7 +421,7 @@ def show_candidate(chat_id):
         types.InlineKeyboardButton("💔 Дизлайк", callback_data='dislike')
     )
 
-    caption = f"👤 {u.name} {u.surname}, {u.city.name}\n🔞 {u.age} лет"
+    caption = f"👤 {u.name} {u.surname}, {u.city.name}\n🔞 {u.age} лет\nИнтересы:{u.get_themes_interests()}"
 
     try:
         with open(u.avatar, 'rb') as ph:
@@ -443,14 +443,14 @@ def on_feedback(call):
 
     # Сохраняем реакцию
     liked = (call.data == 'like')
-    Feedback.create(user_from=me.id, user_to=target_id, liked=liked)
+    Feedback.create(from_id=me.id, to_id=target_id, like=liked)
 
     # Если это лайк, проверяем, не лайкнул ли target нас раньше
     if liked:
         mutual = Feedback.get_or_none(
-            (Feedback.user_from == target_id) &
-            (Feedback.user_to   == me.id) &
-            (Feedback.liked     == True)
+            (Feedback.from_id == target_id) &
+            (Feedback.to_id == me.id) &
+            (Feedback.like == True)
         )
         if mutual:
             # у нас совпадение!

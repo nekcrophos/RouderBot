@@ -1,7 +1,7 @@
 from baseModel import *
 from user import User
 
-class Feedbacks(BaseModel):
+class Feedback(BaseModel):
     id = AutoField(column_name = "id")
     from_id = ForeignKeyField(User)
     to_id = ForeignKeyField(User)
