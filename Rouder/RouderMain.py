@@ -1,3 +1,5 @@
+from collections import Counter
+from itertools import count
 from telebot import types
 import telebot
 import os
@@ -359,11 +361,7 @@ def search(message):
         return
 
     # Мои интересы
-    my_ids = {i[0] for i in
-              Interest.select(Interest.id)
-                      .join(InterestUser)
-                      .where(InterestUser.user_id == me.id)
-                      .tuples()}
+    my_ids = list(map(lambda x: x.id, me.get_interests()))
 
     # Диапазон возраста
     min_age = max(18, me.age - 2)
@@ -381,12 +379,9 @@ def search(message):
     for u in candidates:
         same_city = (u.city_id == me.city_id)
         age_diff   = abs(u.age - me.age)
-        their_ids  = {i[0] for i in
-                      Interest.select(Interest.id)
-                              .join(InterestUser)
-                              .where(InterestUser.user_id == u.id)
-                              .tuples()}
-        common     = len(my_ids & their_ids)
+        their_ids  = list(map(lambda x: x.id, u.get_interests()))
+        
+        common     = sum(i[0] == i[1] for i in zip(my_ids, their_ids))
         scored.append((u.id, same_city, age_diff, common))
 
     # Сортируем по (город, возраст, интересы)
