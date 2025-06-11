@@ -1,6 +1,10 @@
-class Feedback(BaseModel):
-    id        = AutoField()
-    user_from = ForeignKeyField(User, backref='sent_feedbacks')
-    user_to   = ForeignKeyField(User, backref='received_feedbacks')
-    liked     = BooleanField()
-    created   = DateTimeField(default=datetime.datetime.now)
+from baseModel import *
+from user import User
+
+class Feedbacks(BaseModel):
+    id = AutoField(column_name = "id")
+    from_id = ForeignKeyField(User)
+    to_id = ForeignKeyField(User)
+    like = BooleanField(column_name="like")
+    class Meta:
+        table_name = "Feedbacks"

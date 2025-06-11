@@ -60,6 +60,22 @@ CREATE TABLE IF NOT EXISTS Reviews (
 ''')
 conn.commit()
 conn.close()
+
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS Feedbacks (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ from_id INTEGER,
+ to_id INTEGER,
+ like BOOLEAN,
+ FOREIGN KEY (to_id) REFERENCES Users (id) ON DELETE CASCADE,
+ FOREIGN KEY (from_id) REFERENCES Users (id) ON DELETE CASCADE
+)
+''')
+conn.commit()
+conn.close()
+
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
