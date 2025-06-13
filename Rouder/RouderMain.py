@@ -7,12 +7,15 @@ from dotenv import load_dotenv
 from telebot.apihelper import ApiTelegramException
 from geopy.geocoders import Nominatim 
 
-from database.repositories.user_repo import *
+import sys
+sys.path.insert(1, 'Rouder\models')
+sys.path.insert(1, 'Rouder\database')
 from models.user import User
 from models.interest import Interest
 from models.theme import Theme
 from models.city import City
 from models.feedback import Feedback
+
 
 load_dotenv()
 token = os.getenv("TOKEN")
@@ -405,7 +408,7 @@ def search(message):
     scored.sort(key=lambda x: (not x[1], x[2], -x[3]))
 
     if not scored:
-        return bot.send_message(message.chat.id, "Никого не найдено.")
+        return bot.send_message(message.chat.id, "Никого не найдено")
 
     candidate_ids = [item[0] for item in scored]
     search_sessions[message.chat.id] = {
