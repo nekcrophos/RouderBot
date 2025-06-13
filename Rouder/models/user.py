@@ -8,6 +8,8 @@ class User(BaseModel):
     surname = CharField(column_name = "surname")
     avatar = TextField(column_name = "avatar")
     age = IntegerField(column_name = "age")
+    gender = CharField(column_name = "gender")
+    gender_pred = CharField(column_name = "gender_pred")
     description = TextField(column_name = "description")
     register = BooleanField(column_name = "register")
     city = ForeignKeyField(City, null=True, column_name = "city")

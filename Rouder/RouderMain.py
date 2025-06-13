@@ -168,6 +168,17 @@ def send_topic(chat_id):
     bot.send_message(chat_id, text, reply_markup=markup)
     bot.send_message(chat_id, "Выбери несколько вариантов, затем нажми ➡️", reply_markup=next_keyboard)
 
+# пердпочтение в компании мужская или женская
+def handle_gender_selection(message):
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(types.InlineKeyboardButton('Мужской', callback_data='gender_male'), types.InlineKeyboardButton('Женский', callback_data='gender_female'),
+                 types.InlineKeyboardButton('Не важно', callback_data='gender_unspecified'))
+    bot.send_message(chat_id=message.chat.id, text="Какой пол ты предпочитаешь в компании?", reply_markup=keyboard)
+    markup_gender = types.InlineKeyboardMarkup()
+    markup_gender.add(types.InlineKeyboardButton("Мужской", callback_data='male'), types.InlineKeyboardButton("Женский", callback_data='female'))
+    bot.send_message(chat_id=message.chat.id, text="Какого ты сам пола?", reply_markup=markup_gender)
+    
+        
 # Получение местоположения
 def get_location(message):
     keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
@@ -305,7 +316,7 @@ def handle_next_topic(message):
         send_topic(chat_id)
     else:
         bot.send_message(chat_id, "✅ Выбор интересов завершен!", reply_markup=types.ReplyKeyboardRemove())
-        get_location(message)
+        handle_gender_selection(message)
 
 
 
@@ -336,7 +347,7 @@ def show_profile(message):
                 bot.send_photo(
                     message.chat.id,
                     photo,
-                    caption=f"👤 {user.name} {user.surname}, {user.city.name}\n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
+                    caption=f"👤 {user.name} {user.surname}, {user.city.name}\n Пол: {user.gender} \n🔞 Возраст: {user.age}\n🎯 Интересы:\n{interests}"
                 )
         except Exception as e:
             bot.send_message(message.chat.id, f"Ошибка загрузки профиля: {str(e)}")
@@ -368,30 +379,34 @@ def search(message):
     min_age = max(18, me.age - 2)
     max_age = me.age + 2
 
-    # Берём кандидатов сразу с возрастным фильтром
+    # Начальная выборка
     candidates = User.select().where(
         (User.id != me.id) &
         (User.register == True) &
         (User.age.between(min_age, max_age))
     )
 
-    # Считаем для каждого критерии совпадения
+    # 🔹 Добавим фильтрацию по полу компании
+    if me.gender_pred == 'male_company':
+        candidates = candidates.where(User.gender == 'male')
+    elif me.gender_pred == 'female_company':
+        candidates = candidates.where(User.gender == 'female')
+    # Если 'any', не фильтруем по полу
+
+    # Считаем совпадения
     scored = []
     for u in candidates:
         same_city = (u.city_id == me.city_id)
         age_diff   = abs(u.age - me.age)
         their_ids  = list(map(lambda x: x.id, u.get_interests()))
-        
         common     = sum(i[0] == i[1] for i in zip(my_ids, their_ids))
         scored.append((u.id, same_city, age_diff, common))
 
-    # Сортируем по (город, возраст, интересы)
     scored.sort(key=lambda x: (not x[1], x[2], -x[3]))
 
     if not scored:
-        return bot.send_message(message.chat.id, "Никого не найдено в этом возрастном диапазоне.")
+        return bot.send_message(message.chat.id, "Никого не найдено.")
 
-    # Сохраняем только список ID
     candidate_ids = [item[0] for item in scored]
     search_sessions[message.chat.id] = {
         'ids': candidate_ids,
@@ -399,6 +414,7 @@ def search(message):
     }
 
     show_candidate(message.chat.id)
+
 
 
 def show_candidate(chat_id):
@@ -421,7 +437,7 @@ def show_candidate(chat_id):
         types.InlineKeyboardButton("💔 Дизлайк", callback_data='dislike')
     )
 
-    caption = f"👤 {u.name} {u.surname}, {u.city.name}\n🔞 {u.age} лет\nИнтересы:{u.get_themes_interests()}"
+    caption = f"👤 {u.name} {u.surname}, {u.city.name}\n Пол: {u.gender} \n🔞 {u.age} лет\nИнтересы:{u.get_themes_interests()}"
 
     try:
         with open(u.avatar, 'rb') as ph:
@@ -524,7 +540,6 @@ def on_ignore_match(call):
     except:
         pass
 
-
 def get_username(telegram_id: int) -> str:
     """Пытаемся достать Telegram-username через get_chat.
        Если нет — вернём telegram_id."""
@@ -533,6 +548,32 @@ def get_username(telegram_id: int) -> str:
         return member.username or str(telegram_id)
     except:
         return str(telegram_id)
+
+@bot.callback_query_handler(func=lambda c: c.data in ['gender_male', 'gender_female', 'gender_unspecified'])
+def set_gender(call):
+    user =  users[call.message.chat.id]
+    if call.data == 'gender_male':
+        user.gender_pred = 'male_company'
+        bot.send_message(call.message.chat.id, f"Предпочтение в анкетах установлено: мужская компания")
+    elif call.data == 'gender_female':
+        user.gender_pred = 'female_company'
+        bot.send_message(call.message.chat.id, f"Предпочтение в анкетах установлено: женская компания")
+    elif call.data == 'gender_unspecified':
+        user.gender_pred = 'unspecified'
+        bot.send_message(call.message.chat.id, f"Предпочтение в анкетах установлено: любая компания")
+
+
+@bot.callback_query_handler(func=lambda c: c.data in ['male', 'female'])
+def on_gender(call):
+    user =  users[call.message.chat.id]
+    if call.data == 'male':
+        user.gender = 'male'
+        bot.send_message(call.message.chat.id, f"Пол установлен: мужской")
+    elif call.data == 'female':
+        user.gender = 'female'
+        bot.send_message(call.message.chat.id, f"Пол установлен: женский")
+    msg = bot.send_message(call.message.chat.id, "Предоставь местоположение:")
+    get_location(msg)
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)

@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS Users (
  name NVARCHAR(15),
  surname VARCHAR(40),
  age INT,
+ gender_pred VARCHAR(25),
+ gender VARCHAR(25),
  description VARCHAR(200),
  avatar VARCHAR(50),
  register BOOL,
