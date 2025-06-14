@@ -82,12 +82,16 @@ def get_surname(message):
     user = users[message.chat.id]
     if user:
         user.surname = message.text
-        msg = bot.send_message(message.chat.id, "Отправь свою аватарку?")
+        msg = bot.send_message(message.chat.id, "Отправь свою аватарку")
         bot.register_next_step_handler(msg, get_avatar)
 
 def get_avatar(message):
-    user = users[message.chat.id]
-    if user and message.photo:
+    user = users.get(message.chat.id)
+    if not user:
+        return
+
+    # Если пришла фотография — сохраняем
+    if message.photo:
         photo = message.photo[-1]
         file_info = bot.get_file(photo.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -96,6 +100,15 @@ def get_avatar(message):
             new_avatar.write(downloaded_file)
         user.avatar = save_path
         start_interest_selection(message)
+        return
+
+    # Если пришёл документ или текст — ругаемся и просим фото снова
+    bot.send_message(
+        message.chat.id,
+        "❌ Это не фотография. Пожалуйста, отправьте именно изображение (через кнопку «Прикрепить фото»)."
+    )
+    # ждем следующего шага снова в этой же функции
+    bot.register_next_step_handler(message, get_avatar)
 
 # Начало опроса по интересам
 
@@ -575,7 +588,7 @@ def on_gender(call):
     elif call.data == 'female':
         user.gender = 'female'
         bot.send_message(call.message.chat.id, f"Пол установлен: женский")
-    msg = bot.send_message(call.message.chat.id, "Предоставь местоположение:")
+    msg = bot.send_message(call.message.chat.id, "Следующий шаг геолокация: ")
     get_location(msg)
 
 if __name__ == '__main__':
