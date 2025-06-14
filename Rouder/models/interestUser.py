@@ -7,4 +7,4 @@ class InterestUser(BaseModel):
     interest_id = ForeignKeyField(Interest)
     user_id = ForeignKeyField(User)
     class Meta:
-        table_name = "InterestsUser"
+        table_name = "InterestUsers"

@@ -8,15 +8,29 @@ import sys
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
+CREATE TABLE IF NOT EXISTS Cities (
+ Id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name NVARCHAR(100)
+)
+''')
+conn.commit()
+conn.close()
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
 CREATE TABLE IF NOT EXISTS Users (
  Id INTEGER PRIMARY KEY AUTOINCREMENT,
  telegram_id INTEGER UNIQUE,
  name NVARCHAR(15),
  surname VARCHAR(40),
  age INT,
+ gender_pred VARCHAR(25),
+ gender VARCHAR(25),
  description VARCHAR(200),
  avatar VARCHAR(50),
- register BOOL
+ register BOOL,
+ city INTEGER,
+ FOREIGN KEY (city) REFERENCES Cities (id) ON DELETE CASCADE
 )
 ''')
 conn.commit()
@@ -48,6 +62,22 @@ CREATE TABLE IF NOT EXISTS Reviews (
 ''')
 conn.commit()
 conn.close()
+
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS Feedbacks (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ from_id INTEGER,
+ to_id INTEGER,
+ like BOOLEAN,
+ FOREIGN KEY (to_id) REFERENCES Users (id) ON DELETE CASCADE,
+ FOREIGN KEY (from_id) REFERENCES Users (id) ON DELETE CASCADE
+)
+''')
+conn.commit()
+conn.close()
+
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
@@ -103,12 +133,24 @@ CREATE TABLE IF NOT EXISTS MeetingUsers (
 ''')
 conn.commit()
 conn.close()
+
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS Themes(
+  id integer PRIMARY KEY AUTOINCREMENT,
+  name nvarchar(255) NOT NULL
+)
+''')
+conn.commit()
+conn.close()
+
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS Interests (
   id integer PRIMARY KEY AUTOINCREMENT,
-  name nvarchar(255) NOT NULL
+  name nvarchar(255) NOT NULL,
   theme_id integer NOT NULL,
   FOREIGN KEY (theme_id) REFERENCES Themes (id) ON DELETE CASCADE
 )
@@ -128,13 +170,50 @@ CREATE TABLE IF NOT EXISTS InterestUsers(
 ''')
 conn.commit()
 conn.close()
+
 conn = sqlite3.connect('bot.db')  
 cursor = conn.cursor()
 cursor.execute('''
-CREATE TABLE IF NOT EXISTS Themes(
-  id integer PRIMARY KEY AUTOINCREMENT,
-  name nvarchar(255) NOT NULL
-)
+INSERT INTO Themes(name)
+VALUES
+('music'),
+('place'),
+('actives'),
+('culter'),
+('lifestyle');
+''')
+conn.commit()
+conn.close()
+conn = sqlite3.connect('bot.db')  
+cursor = conn.cursor()
+cursor.execute('''
+INSERT INTO Interests(name, theme_id)
+VALUES
+('rock', 1),
+('electro', 1),
+('hiphop', 1),
+('pop', 1),
+('shanson', 1),
+('coffee', 2),
+('wine', 2),
+('beer', 2),
+('restaurant', 2),
+('streetfood', 2),
+('boardgames', 3),
+('quizes', 3),
+('karaoke', 3),
+('dances', 3),
+('sports', 3),
+('cinema', 4),
+('comics', 4),
+('anime', 4),
+('nostalgia', 4),
+('books', 4),
+('zoj', 5),
+('travel', 5),
+('crypto', 5),
+('fashion', 5),
+('ecology', 5);
 ''')
 conn.commit()
 conn.close()
