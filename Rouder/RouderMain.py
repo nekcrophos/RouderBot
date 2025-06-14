@@ -19,7 +19,7 @@ from models.feedback import Feedback
 
 load_dotenv()
 token = os.getenv("TOKEN")
-bot = telebot.TeleBot(token)
+bot = telebot.TeleBot(token, threaded=True)
 
 geolocator = Nominatim(user_agent="my_geopy_app")
 global interests
@@ -630,4 +630,4 @@ def on_gender(call):
     get_location(msg)
 
 if __name__ == '__main__':
-    bot.polling(none_stop=True)
+    bot.polling(none_stop=True, skip_pending=True)
