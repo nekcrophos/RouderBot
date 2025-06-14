@@ -45,6 +45,27 @@ with open('Rouder\\pream.txt', 'r', encoding='utf-8') as f:
 user_states = {}
 user_choices = {}
 
+
+@bot.message_handler(commands=['help'])
+def help_handler(message):
+    text = (
+        "ℹ️ <b>Справка по боту</b>\n\n"
+        "• /start — начать регистрацию или перезапустить бота\n"
+        "• /help — показать это сообщение\n"
+        "• /my_profile — посмотреть свой профиль\n"
+        "• /change_profile — удалить текущий профиль и начать заново\n"
+        "• /search — найти партнёров по вашим критериям\n\n"
+        "<b>Как это работает:</b>\n"
+        "1️⃣ При /start вы вводите имя, фамилию и отправляете фото.\n"
+        "2️⃣ Выбираете свои интересы в 5 категориях.\n"
+        "3️⃣ Указываете половые предпочтения и локацию.\n"
+        "4️⃣ В /search бот предложит вам кандидатов (лайк/дизлайк).\n"
+        "5️⃣ При взаимном лайке вы получите уведомление о совпадении.\n\n"
+        "⚠️ <i>Имя и фамилия — только буквами, фото — обязательно как изображение.</i>"
+    )
+    bot.send_message(message.chat.id, text, parse_mode='HTML')
+
+
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.set_chat_menu_button(message.chat.id, types.MenuButtonCommands('commands'))
@@ -58,7 +79,11 @@ def start(message):
     bot.send_message(message.chat.id, preamble, reply_markup=keyboard)
 @bot.message_handler(commands=['my_profile'])
 def my_profile(message):
-    show_profile(message)
+    user = users.get(message.chat.id)
+    if user:
+        show_profile(message)
+    else:
+        bot.send_message(message.chat.id, "Вы ещё не зарегистрированы. Для регистрации введите команду /start.")
 @bot.callback_query_handler(func=lambda call: call.data in ['yes_indeed', 'no_imnot'])
 def handle_introduction(call):
     bot.answer_callback_query(call.id)
@@ -74,16 +99,29 @@ def get_name(message):
     users[message.chat.id] = User()
     user = users[message.chat.id]
     user.telegram_id = message.chat.id
-    user.name = message.text
-    msg = bot.send_message(message.chat.id, "Какая у тебя фамилия?")
-    bot.register_next_step_handler(msg, get_surname)
+
+    if message.text and message.text.isalpha():
+        user.name = message.text
+        msg = bot.send_message(message.chat.id, "Какая у тебя фамилия?")
+        bot.register_next_step_handler(msg, get_surname)
+    else:
+        msg = bot.send_message(
+            message.chat.id,
+            "❌ Имя может состоять только из букв. Пожалуйста, введите ваше имя еще раз текстом."
+        )
+        bot.register_next_step_handler(msg, get_name)
 
 def get_surname(message):
     user = users[message.chat.id]
     if user:
-        user.surname = message.text
-        msg = bot.send_message(message.chat.id, "Отправь свою аватарку")
-        bot.register_next_step_handler(msg, get_avatar)
+        if message.text and message.text.isalpha():
+            user.surname = message.text
+            msg = bot.send_message(message.chat.id, "Отправь свою аватарку")
+            bot.register_next_step_handler(msg, get_avatar)
+        else:
+            msg = bot.send_message(message.chat.id, "❌ Фамилия может состоять только из букв. Пожалуйста, введите вашу фамилию еще раз.")
+            bot.register_next_step_handler(msg, get_surname)
+            
 
 def get_avatar(message):
     user = users.get(message.chat.id)
